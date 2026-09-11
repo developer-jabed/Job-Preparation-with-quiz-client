@@ -1,7 +1,7 @@
 // components/modules/pdf-uploadManagement/ExtractedQuestionsTable.tsx
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState, useTransition, useMemo } from "react";
 import {
   Table,
   TableBody,
@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -37,6 +38,8 @@ import {
   Clock,
   Check,
   Ban,
+  Loader2,
+  X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
@@ -93,14 +96,14 @@ function ConfidenceBar({ score }: { score: number }) {
     pct >= 80 ? "bg-emerald-500" : pct >= 60 ? "bg-amber-500" : "bg-red-500";
 
   return (
-    <div className="flex items-center gap-2 min-w-[90px]">
-      <div className="h-1.5 flex-1 rounded-full bg-muted overflow-hidden">
+    <div className="flex min-w-[90px] items-center gap-2">
+      <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-muted">
         <div
           className={cn("h-full rounded-full transition-all", color)}
           style={{ width: `${pct}%` }}
         />
       </div>
-      <span className="text-xs font-medium tabular-nums text-muted-foreground w-8">
+      <span className="w-8 text-xs font-medium tabular-nums text-muted-foreground">
         {pct}%
       </span>
     </div>
@@ -110,9 +113,13 @@ function ConfidenceBar({ score }: { score: number }) {
 function QuestionRow({
   question,
   index,
+  selected,
+  onToggle,
 }: {
   question: ExtractedQuestion;
   index: number;
+  selected: boolean;
+  onToggle: (id: string) => void;
 }) {
   const [open, setOpen] = useState(false);
   const [isPending, startTransition] = useTransition();
@@ -124,10 +131,7 @@ function QuestionRow({
   const diffCfg =
     difficultyConfig[question.difficulty] || difficultyConfig.MEDIUM;
 
-  const handleStatusUpdate = (
-    status: ReviewStatus,
-    reviewNote?: string
-  ) => {
+  const handleStatusUpdate = (status: ReviewStatus, reviewNote?: string) => {
     startTransition(async () => {
       const res = await updateExtractedQuestionStatus(
         question.id,
@@ -157,15 +161,24 @@ function QuestionRow({
 
   return (
     <>
-      {/* Main row */}
       <TableRow
         className={cn(
           "group cursor-pointer transition-colors hover:bg-muted/40",
-          open && "bg-muted/30"
+          open && "bg-muted/30",
+          selected && "bg-blue-50/50 dark:bg-blue-950/20"
         )}
-        onClick={() => setOpen((v) => !v)}
       >
-        <TableCell className="w-10 pl-4">
+        {/* Checkbox */}
+        <TableCell className="w-10 pl-4" onClick={(e) => e.stopPropagation()}>
+          <Checkbox
+            checked={selected}
+            onCheckedChange={() => onToggle(question.id)}
+            aria-label={`Select question ${index + 1}`}
+          />
+        </TableCell>
+
+        {/* Expand */}
+        <TableCell className="w-10">
           <Button
             variant="ghost"
             size="icon"
@@ -183,16 +196,16 @@ function QuestionRow({
           </Button>
         </TableCell>
 
-        <TableCell className="w-12 text-muted-foreground font-medium tabular-nums">
+        <TableCell className="w-12 font-medium tabular-nums text-muted-foreground">
           {index + 1}
         </TableCell>
 
-        <TableCell className="max-w-lg">
+        <TableCell className="max-w-lg" onClick={() => setOpen((v) => !v)}>
           <p className="line-clamp-2 text-sm leading-relaxed">
             {question.questionText}
           </p>
           {question.questionType && (
-            <span className="mt-1 inline-block text-[11px] text-muted-foreground uppercase tracking-wide">
+            <span className="mt-1 inline-block text-[11px] uppercase tracking-wide text-muted-foreground">
               {question.questionType}
             </span>
           )}
@@ -201,7 +214,7 @@ function QuestionRow({
         <TableCell>
           <Badge
             variant="outline"
-            className={cn("font-medium border", diffCfg.className)}
+            className={cn("border font-medium", diffCfg.className)}
           >
             {question.difficulty}
           </Badge>
@@ -229,7 +242,7 @@ function QuestionRow({
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity"
+                className="h-8 w-8 opacity-0 transition-opacity group-hover:opacity-100"
                 disabled={isPending}
                 onClick={(e) => e.stopPropagation()}
               >
@@ -279,15 +292,14 @@ function QuestionRow({
         </TableCell>
       </TableRow>
 
-      {/* Expanded detail row */}
+      {/* Expanded detail */}
       {open && (
         <TableRow className="bg-muted/20 hover:bg-muted/20">
-          <TableCell colSpan={7} className="p-0">
-            <div className="px-6 py-4 space-y-4 border-t border-border/50">
-              {/* Options */}
+          <TableCell colSpan={8} className="p-0">
+            <div className="space-y-4 border-t border-border/50 px-6 py-4">
               {question.options?.length > 0 && (
                 <div>
-                  <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">
+                  <h4 className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                     Options
                   </h4>
                   <div className="grid gap-1.5 sm:grid-cols-2">
@@ -321,22 +333,20 @@ function QuestionRow({
                 </div>
               )}
 
-              {/* Explanation */}
               {question.explanation && (
                 <div>
-                  <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1.5">
+                  <h4 className="mb-1.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                     Explanation
                   </h4>
-                  <p className="text-sm leading-relaxed text-foreground/90 bg-background rounded-lg border px-3 py-2.5">
+                  <p className="rounded-lg border bg-background px-3 py-2.5 text-sm leading-relaxed text-foreground/90">
                     {question.explanation}
                   </p>
                 </div>
               )}
 
-              {/* Review note */}
               {question.reviewNote && (
                 <div className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50/60 px-3 py-2 text-sm dark:border-amber-800 dark:bg-amber-950/30">
-                  <AlertCircle className="h-4 w-4 mt-0.5 text-amber-600 shrink-0" />
+                  <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" />
                   <div>
                     <span className="font-medium text-amber-800 dark:text-amber-300">
                       Review note:{" "}
@@ -348,7 +358,6 @@ function QuestionRow({
                 </div>
               )}
 
-              {/* Meta */}
               <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
                 <span>
                   Correct:{" "}
@@ -377,6 +386,86 @@ export function ExtractedQuestionsTable({
 }: {
   questions: ExtractedQuestion[];
 }) {
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [isPending, startTransition] = useTransition();
+  const router = useRouter();
+
+  const allIds = useMemo(() => questions.map((q) => q.id), [questions]);
+  const allSelected =
+    questions.length > 0 && selectedIds.size === questions.length;
+  const someSelected = selectedIds.size > 0 && !allSelected;
+
+  const toggleOne = (id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const toggleAll = () => {
+    if (allSelected) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(allIds));
+    }
+  };
+
+  const clearSelection = () => setSelectedIds(new Set());
+
+  // ── Bulk actions ──────────────────────────────────────
+  const runBulk = (
+    action: (id: string) => Promise<{ success: boolean; message?: string }>,
+    successMsg: string
+  ) => {
+    if (selectedIds.size === 0) return;
+
+    startTransition(async () => {
+      const ids = Array.from(selectedIds);
+      let successCount = 0;
+      let failCount = 0;
+
+      // Sequential to avoid overwhelming the server (you can switch to Promise.allSettled if preferred)
+      for (const id of ids) {
+        const res = await action(id);
+        if (res.success) successCount++;
+        else failCount++;
+      }
+
+      if (successCount > 0) {
+        toast.success(`${successCount} question(s) ${successMsg}`);
+      }
+      if (failCount > 0) {
+        toast.error(`${failCount} question(s) failed`);
+      }
+
+      clearSelection();
+      router.refresh();
+    });
+  };
+
+  const bulkApprove = () =>
+    runBulk(
+      (id) => updateExtractedQuestionStatus(id, "APPROVED"),
+      "approved"
+    );
+
+  const bulkApproveAndCreate = () =>
+    runBulk((id) => approveAndCreateQuestion(id), "approved & created");
+
+  const bulkNeedsEdit = () =>
+    runBulk(
+      (id) => updateExtractedQuestionStatus(id, "NEEDS_EDIT"),
+      "marked as Needs Edit"
+    );
+
+  const bulkReject = () =>
+    runBulk(
+      (id) => updateExtractedQuestionStatus(id, "REJECTED"),
+      "rejected"
+    );
+
   if (questions.length === 0) {
     return (
       <div className="rounded-xl border border-dashed bg-muted/20 p-12 text-center">
@@ -422,11 +511,91 @@ export function ExtractedQuestionsTable({
         })}
       </div>
 
-      <div className="rounded-xl border bg-card overflow-hidden shadow-sm">
+      {/* Bulk action bar */}
+      {selectedIds.size > 0 && (
+        <div className="sticky top-0 z-10 flex flex-wrap items-center gap-2 rounded-xl border border-blue-200 bg-blue-50/90 px-4 py-3 shadow-sm backdrop-blur dark:border-blue-900 dark:bg-blue-950/60">
+          <span className="text-sm font-medium text-blue-800 dark:text-blue-200">
+            {selectedIds.size} selected
+          </span>
+
+          <div className="mx-1 h-4 w-px bg-blue-200 dark:bg-blue-800" />
+
+          <Button
+            size="sm"
+            variant="outline"
+            className="h-8 gap-1.5 border-emerald-300 bg-white text-emerald-700 hover:bg-emerald-50 dark:border-emerald-800 dark:bg-emerald-950 dark:text-emerald-300"
+            disabled={isPending}
+            onClick={bulkApprove}
+          >
+            {isPending ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <Check className="h-3.5 w-3.5" />
+            )}
+            Approve
+          </Button>
+
+          <Button
+            size="sm"
+            className="h-8 gap-1.5 bg-violet-600 text-white hover:bg-violet-700"
+            disabled={isPending}
+            onClick={bulkApproveAndCreate}
+          >
+            {isPending ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <Sparkles className="h-3.5 w-3.5" />
+            )}
+            Approve & Create
+          </Button>
+
+          <Button
+            size="sm"
+            variant="outline"
+            className="h-8 gap-1.5 border-orange-300 bg-white text-orange-700 hover:bg-orange-50 dark:border-orange-800 dark:bg-orange-950 dark:text-orange-300"
+            disabled={isPending}
+            onClick={bulkNeedsEdit}
+          >
+            <Edit3 className="h-3.5 w-3.5" />
+            Needs Edit
+          </Button>
+
+          <Button
+            size="sm"
+            variant="outline"
+            className="h-8 gap-1.5 border-red-300 bg-white text-red-700 hover:bg-red-50 dark:border-red-800 dark:bg-red-950 dark:text-red-300"
+            disabled={isPending}
+            onClick={bulkReject}
+          >
+            <Ban className="h-3.5 w-3.5" />
+            Reject
+          </Button>
+
+          <Button
+            size="sm"
+            variant="ghost"
+            className="ml-auto h-8 gap-1.5 text-muted-foreground"
+            onClick={clearSelection}
+            disabled={isPending}
+          >
+            <X className="h-3.5 w-3.5" />
+            Clear
+          </Button>
+        </div>
+      )}
+
+      <div className="overflow-hidden rounded-xl border bg-card shadow-sm">
         <Table>
           <TableHeader>
             <TableRow className="bg-muted/40 hover:bg-muted/40">
-              <TableHead className="w-10 pl-4" />
+              <TableHead className="w-10 pl-4">
+                <Checkbox
+                  checked={allSelected ? true : someSelected ? "indeterminate" : false}
+                  onCheckedChange={toggleAll}
+                  aria-label="Select all"
+                />
+              </TableHead>
+              <TableHead className="w-10" />
               <TableHead className="w-12">#</TableHead>
               <TableHead>Question</TableHead>
               <TableHead className="w-[100px]">Difficulty</TableHead>
@@ -437,7 +606,13 @@ export function ExtractedQuestionsTable({
           </TableHeader>
           <TableBody>
             {questions.map((q, idx) => (
-              <QuestionRow key={q.id} question={q} index={idx} />
+              <QuestionRow
+                key={q.id}
+                question={q}
+                index={idx}
+                selected={selectedIds.has(q.id)}
+                onToggle={toggleOne}
+              />
             ))}
           </TableBody>
         </Table>
