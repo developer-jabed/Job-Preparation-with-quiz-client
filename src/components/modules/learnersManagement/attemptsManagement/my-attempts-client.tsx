@@ -16,7 +16,7 @@ import {
   Timer,
   BookOpen,
   Search,
-  Filter,
+  Ban,
   RefreshCw,
 } from "lucide-react";
 import { cn } from "@/lib/utils"; // adjust if you use a different cn helper
@@ -52,11 +52,21 @@ const statusConfig = {
     border: "border-rose-200",
     dot: "bg-rose-500",
   },
+  ABANDONED: {
+    label: "Abandoned",
+    icon: Ban,
+    bg: "bg-slate-500/10",
+    text: "text-slate-700",
+    border: "border-slate-200",
+    dot: "bg-slate-400",
+  },
 } as const;
+
+type StatusFilter = "ALL" | keyof typeof statusConfig;
 
 export function MyAttemptsClient({ initialAttempts, initialError }: Props) {
   const [search, setSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState<"ALL" | "COMPLETED" | "IN_PROGRESS" | "TIMED_OUT">("ALL");
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>("ALL");
 
   const filtered = useMemo(() => {
     return initialAttempts.filter((a) => {
@@ -168,7 +178,7 @@ export function MyAttemptsClient({ initialAttempts, initialError }: Props) {
         </div>
 
         <div className="flex items-center gap-2 overflow-x-auto pb-1">
-          {(["ALL", "COMPLETED", "IN_PROGRESS", "TIMED_OUT"] as const).map((s) => (
+          {(["ALL", "COMPLETED", "IN_PROGRESS", "TIMED_OUT", "ABANDONED"] as const).map((s) => (
             <button
               key={s}
               onClick={() => setStatusFilter(s)}
@@ -257,7 +267,8 @@ function AttemptCard({ attempt }: { attempt: TestAttempt }) {
           "absolute left-0 top-0 h-full w-1",
           attempt.status === "COMPLETED" && "bg-emerald-500",
           attempt.status === "IN_PROGRESS" && "bg-amber-500",
-          attempt.status === "TIMED_OUT" && "bg-rose-500"
+          attempt.status === "TIMED_OUT" && "bg-rose-500",
+          attempt.status === "ABANDONED" && "bg-slate-400"
         )}
       />
 
