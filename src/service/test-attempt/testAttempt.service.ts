@@ -353,82 +353,58 @@ export async function getAttemptById(id: string): Promise<{
   }
 }
 
-// ────────────────────────────────────────────────
-// ⚠️ Admin: Get all attempts — NO MATCHING BACKEND ROUTE YET
-//
-// `test-attempt.routes.ts` only exposes:
-//   POST  /start
-//   PATCH /:attemptId/answer
-//   POST  /:attemptId/submit
-//   GET   /my
-//   GET   /:attemptId/result
-//   GET   /:attemptId
-//
-// There is no GET /attempts (list, with pagination/search/filter by
-// testId/status) and no role restriction to ADMIN anywhere in this router.
-// Calling this action right now will 404 against your Fastify server.
-//
-// To make this real you need, on the backend:
-//   1. A new route, e.g. `fastify.get("/", { preHandler: [requireRole("ADMIN")] }, TestAttemptController.getAllAttempts)`
-//   2. A matching service method (not present in TestAttemptService above)
-//      that does `prisma.testAttempt.findMany` with pagination/search/testId/status filters
-//      and is NOT scoped to a single userId.
-//
-// Left in place (commented out) so it doesn't silently fail in prod —
-// uncomment once the backend route exists.
-// ────────────────────────────────────────────────
 
-// export async function getAllTestAttempts(params?: {
-//   page?: number;
-//   limit?: number;
-//   searchTerm?: string;
-//   testId?: string;
-//   status?: string;
-//   sortBy?: string;
-//   sortOrder?: "asc" | "desc";
-// }): Promise<{
-//   success: boolean;
-//   message?: string;
-//   data: TestAttempt[];
-//   meta?: { page: number; limit: number; total: number };
-// }> {
-//   try {
-//     const query = new URLSearchParams();
-//     if (params?.page) query.set("page", String(params.page));
-//     if (params?.limit) query.set("limit", String(params.limit));
-//     if (params?.searchTerm) query.set("searchTerm", params.searchTerm);
-//     if (params?.testId) query.set("testId", params.testId);
-//     if (params?.status) query.set("status", params.status);
-//     if (params?.sortBy) query.set("sortBy", params.sortBy);
-//     if (params?.sortOrder) query.set("sortOrder", params.sortOrder);
-//
-//     const qs = query.toString();
-//
-//     const response = await serverFetch.get(
-//       `/attempts${qs ? `?${qs}` : ""}`,
-//       { next: { tags: ["test-attempts-list"] } }
-//     );
-//
-//     const result = await response.json();
-//
-//     if (!result.success) {
-//       return {
-//         success: false,
-//         message: result.message || "অ্যাটেম্পট লোড করতে ব্যর্থ",
-//         data: [],
-//       };
-//     }
-//
-//     return { success: true, data: result.data, meta: result.meta };
-//   } catch (error: any) {
-//     console.error("Get all test attempts error:", error);
-//     return {
-//       success: false,
-//       message:
-//         process.env.NODE_ENV === "development"
-//           ? error.message
-//           : "কিছু একটা ভুল হয়েছে।",
-//       data: [],
-//     };
-//   }
-// }
+export async function getAllTestAttempts(params?: {
+  page?: number;
+  limit?: number;
+  searchTerm?: string;
+  testId?: string;
+  status?: string;
+  sortBy?: string;
+  sortOrder?: "asc" | "desc";
+}): Promise<{
+  success: boolean;
+  message?: string;
+  data: TestAttempt[];
+  meta?: { page: number; limit: number; total: number };
+}> {
+  try {
+    const query = new URLSearchParams();
+    if (params?.page) query.set("page", String(params.page));
+    if (params?.limit) query.set("limit", String(params.limit));
+    if (params?.searchTerm) query.set("searchTerm", params.searchTerm);
+    if (params?.testId) query.set("testId", params.testId);
+    if (params?.status) query.set("status", params.status);
+    if (params?.sortBy) query.set("sortBy", params.sortBy);
+    if (params?.sortOrder) query.set("sortOrder", params.sortOrder);
+
+    const qs = query.toString();
+
+    const response = await serverFetch.get(
+      `/attempts${qs ? `?${qs}` : ""}`,
+      { next: { tags: ["test-attempts-list"] } }
+    );
+
+    const result = await response.json();
+
+    if (!result.success) {
+      return {
+        success: false,
+        message: result.message || "অ্যাটেম্পট লোড করতে ব্যর্থ",
+        data: [],
+      };
+    }
+
+    return { success: true, data: result.data, meta: result.meta };
+  } catch (error: any) {
+    console.error("Get all test attempts error:", error);
+    return {
+      success: false,
+      message:
+        process.env.NODE_ENV === "development"
+          ? error.message
+          : "কিছু একটা ভুল হয়েছে।",
+      data: [],
+    };
+  }
+}
