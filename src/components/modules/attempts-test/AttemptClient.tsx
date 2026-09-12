@@ -21,6 +21,8 @@ import {
   Flag,
   Loader2,
   Send,
+  AlertTriangle,
+  X,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
@@ -42,14 +44,6 @@ interface Props {
   attempt: AttemptResult;
 }
 
-/**
- * The attempt payload can come in two shapes depending on which endpoint
- * populated it: via `attempt.answers[].question` (questionText/options) or
- * via `attempt.test.questions[]` (the in-progress "take the test" shape,
- * which never exposes `isCorrect` on options). This normalizes both into
- * one flat question list, always reading `questionText` — the field the
- * backend actually returns.
- */
 function normalizeQuestions(attempt: AttemptResult): QuizQuestion[] {
   const testQuestions = (attempt.test as { questions?: unknown[] } | undefined)
     ?.questions as
@@ -118,6 +112,7 @@ export default function AttemptClient({ attempt }: Props) {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [submitting, setSubmitting] = useState(false);
   const [flagged, setFlagged] = useState<Set<string>>(new Set());
+  const [showSubmitModal, setShowSubmitModal] = useState(false);
 
   const questions = useMemo(() => normalizeQuestions(attempt), [attempt]);
 
@@ -148,18 +143,15 @@ export default function AttemptClient({ attempt }: Props) {
     [answers]
   );
 
-  const handleSubmit = useCallback(
+  const unansweredCount = total - answeredCount;
+
+  const performSubmit = useCallback(
     (auto = false) => {
       if (submitting || attempt.status !== "IN_PROGRESS") return;
 
-      if (!auto) {
-        const ok = window.confirm(
-          `সাবমিট করবেন? উত্তর দেওয়া হয়েছে: ${answeredCount}/${total}`
-        );
-        if (!ok) return;
-      }
-
+      setShowSubmitModal(false);
       setSubmitting(true);
+
       startTransition(async () => {
         const res = await submitAttempt(attempt.id);
         setSubmitting(false);
@@ -173,14 +165,19 @@ export default function AttemptClient({ attempt }: Props) {
         router.push(`/tests/${attempt.id}/result`);
       });
     },
-    [attempt.id, attempt.status, answeredCount, total, submitting, router]
+    [attempt.id, attempt.status, submitting, router]
   );
 
-  // Keep latest handleSubmit for the interval (avoids stale closure)
-  const handleSubmitRef = useRef(handleSubmit);
+  const handleSubmitClick = () => {
+    if (submitting || attempt.status !== "IN_PROGRESS") return;
+    setShowSubmitModal(true);
+  };
+
+  // Keep latest performSubmit for the interval (avoids stale closure)
+  const performSubmitRef = useRef(performSubmit);
   useEffect(() => {
-    handleSubmitRef.current = handleSubmit;
-  }, [handleSubmit]);
+    performSubmitRef.current = performSubmit;
+  }, [performSubmit]);
 
   useEffect(() => {
     if (attempt.status !== "IN_PROGRESS") return;
@@ -191,7 +188,7 @@ export default function AttemptClient({ attempt }: Props) {
       setRemaining(left);
       if (left <= 0) {
         clearInterval(timer);
-        handleSubmitRef.current(true);
+        performSubmitRef.current(true); // auto-submit, no modal
       }
     }, 1000);
 
@@ -253,10 +250,9 @@ export default function AttemptClient({ attempt }: Props) {
   const isFinished = attempt.status !== "IN_PROGRESS";
 
   return (
-    // pt-[68px] offsets the fixed site navbar (see PublicNavbar's .nav-inner height)
-    // so the sticky quiz header sits right below it instead of underneath it.
     <div className="min-h-screen bg-[#f6f8f5] pt-[68px] dark:bg-[#0e1611]">
       <div className="mx-auto flex min-h-[calc(100vh-68px)] max-w-6xl flex-col">
+        {/* Header */}
         <header className="sticky top-[68px] z-20 border-b border-[#0b6e3c]/12 bg-white/95 backdrop-blur dark:border-white/10 dark:bg-[#0e1611]/95">
           <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 sm:px-6">
             <div>
@@ -284,7 +280,7 @@ export default function AttemptClient({ attempt }: Props) {
               <button
                 type="button"
                 disabled={isFinished || submitting}
-                onClick={() => handleSubmit(false)}
+                onClick={handleSubmitClick}
                 className="inline-flex items-center gap-2 rounded-xl bg-[#0b6e3c] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[#084d2a] disabled:opacity-60"
               >
                 {submitting ? (
@@ -447,6 +443,132 @@ export default function AttemptClient({ attempt }: Props) {
           </aside>
         </div>
       </div>
+
+      {/* ── Submit Confirmation Modal ── */}
+      {showSubmitModal && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+          {/* Backdrop */}
+          <div
+            className="absolute inset-0 bg-slate-900/50 backdrop-blur-sm"
+            onClick={() => !submitting && setShowSubmitModal(false)}
+          />
+
+          {/* Modal */}
+          <div className="relative w-full max-w-md overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl dark:border-white/10 dark:bg-[#121a15]">
+            {/* Top accent */}
+            <div className="h-1 w-full bg-gradient-to-r from-emerald-700 via-emerald-600 to-emerald-500" />
+
+            <div className="p-6">
+              {/* Header */}
+              <div className="flex items-start justify-between gap-4">
+                <div className="flex items-start gap-3.5">
+                  <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-amber-50 text-amber-600 dark:bg-amber-950/50 dark:text-amber-400">
+                    <AlertTriangle className="h-5 w-5" strokeWidth={2.2} />
+                  </div>
+                  <div>
+                    <h2 className="text-base font-semibold text-slate-900 dark:text-[#eaf1ec]">
+                      টেস্ট সাবমিট করবেন?
+                    </h2>
+                    <p className="mt-1 text-sm text-slate-500 dark:text-[#9db3a6]">
+                      সাবমিট করার পর আর পরিবর্তন করা যাবে না।
+                    </p>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  disabled={submitting}
+                  onClick={() => setShowSubmitModal(false)}
+                  className="rounded-lg p-1.5 text-slate-400 transition hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-white/5"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+
+              {/* Stats */}
+              <div className="mt-5 grid grid-cols-2 gap-3">
+                <div className="rounded-xl border border-emerald-100 bg-emerald-50/60 px-4 py-3 dark:border-emerald-900/40 dark:bg-emerald-950/30">
+                  <p className="text-[11px] font-medium uppercase tracking-wider text-emerald-700/70 dark:text-emerald-400/70">
+                    উত্তর দেওয়া
+                  </p>
+                  <p className="mt-0.5 text-xl font-bold tabular-nums text-emerald-800 dark:text-emerald-300">
+                    {answeredCount}
+                    <span className="text-sm font-medium text-emerald-600/70">
+                      /{total}
+                    </span>
+                  </p>
+                </div>
+
+                <div
+                  className={cn(
+                    "rounded-xl border px-4 py-3",
+                    unansweredCount > 0
+                      ? "border-amber-100 bg-amber-50/60 dark:border-amber-900/40 dark:bg-amber-950/30"
+                      : "border-slate-100 bg-slate-50 dark:border-white/10 dark:bg-white/5"
+                  )}
+                >
+                  <p
+                    className={cn(
+                      "text-[11px] font-medium uppercase tracking-wider",
+                      unansweredCount > 0
+                        ? "text-amber-700/70 dark:text-amber-400/70"
+                        : "text-slate-500"
+                    )}
+                  >
+                    বাকি আছে
+                  </p>
+                  <p
+                    className={cn(
+                      "mt-0.5 text-xl font-bold tabular-nums",
+                      unansweredCount > 0
+                        ? "text-amber-800 dark:text-amber-300"
+                        : "text-slate-700 dark:text-slate-300"
+                    )}
+                  >
+                    {unansweredCount}
+                  </p>
+                </div>
+              </div>
+
+              {unansweredCount > 0 && (
+                <p className="mt-3 text-xs text-amber-700 dark:text-amber-400">
+                  আপনার {unansweredCount}টি প্রশ্নের উত্তর দেওয়া হয়নি।
+                </p>
+              )}
+
+              {/* Actions */}
+              <div className="mt-6 flex items-center gap-3">
+                <button
+                  type="button"
+                  disabled={submitting}
+                  onClick={() => setShowSubmitModal(false)}
+                  className="flex-1 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 transition hover:bg-slate-50 disabled:opacity-50 dark:border-white/10 dark:bg-transparent dark:text-[#eaf1ec] dark:hover:bg-white/5"
+                >
+                  বাতিল
+                </button>
+                <button
+                  type="button"
+                  disabled={submitting}
+                  onClick={() => performSubmit(false)}
+                  className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-[#0b6e3c] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#084d2a] disabled:opacity-60"
+                >
+                  {submitting ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      সাবমিট হচ্ছে…
+                    </>
+                  ) : (
+                    <>
+                      <Send className="h-4 w-4" />
+                      সাবমিট করুন
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

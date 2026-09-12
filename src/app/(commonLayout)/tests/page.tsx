@@ -10,8 +10,6 @@ import { Metadata } from "next";
 
 export const dynamic = "force-dynamic";
 
-
-
 export const metadata: Metadata = {
   title: "Practice Tests | Learner",
   description: "Smart mock tests for computer government jobs",
@@ -25,13 +23,14 @@ export default async function PracticePage() {
   ]);
 
   return (
-    <div className="min-h-screen">
-      <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
-        <div className="mb-8">
-          <h1 className="text-2xl font-bold tracking-tight text-gray-900 dark:text-white sm:text-3xl">
+    <div className="min-h-screen bg-[#f7f5f0]">
+      <div className="mx-auto max-w-6xl px-4 pt-6 pb-12 sm:px-6 sm:pt-8 lg:px-8 lg:pt-10">
+        {/* Page Header */}
+        <div className="mb-6 sm:mb-8">
+          <h1 className="text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">
             Practice Tests
           </h1>
-          <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+          <p className="mt-1.5 max-w-2xl text-sm text-slate-500">
             SMART mocks — less repeat, more coverage. Built for computer govt
             jobs.
           </p>

@@ -10,13 +10,15 @@ const LogoutSuccessToast = () => {
 
   useEffect(() => {
     if (searchParams.get("loggedOut") === "true") {
-      toast.success("You have been logged out successfully.");
+      toast.success("সফলভাবে লগআউট হয়েছে");
 
+      // Clean the URL without reload
       const newUrl = new URL(window.location.href);
       newUrl.searchParams.delete("loggedOut");
-      router.replace(newUrl.toString());
+      router.replace(newUrl.pathname + newUrl.search, { scroll: false });
     }
   }, [searchParams, router]);
+
   return null;
 };
 
